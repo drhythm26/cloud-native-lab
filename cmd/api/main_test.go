@@ -8,10 +8,12 @@ import (
 )
 
 func TestHealthzHandler(t *testing.T) {
+	app := newApp(nil)
+
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
-	healthzHandler(rec, req)
+	app.healthzHandler(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
@@ -23,54 +25,43 @@ func TestHealthzHandler(t *testing.T) {
 	}
 }
 
-func TestReadyzHandler(t *testing.T) {
+func TestReadyzHandlerWithoutDatabase(t *testing.T) {
+	app := newApp(nil)
+
 	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	rec := httptest.NewRecorder()
 
-	readyzHandler(rec, req)
+	app.readyzHandler(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status %d, got %d", http.StatusServiceUnavailable, rec.Code)
 	}
 
-	expected := `{"status":"ready"}` + "\n"
+	expected := `{"status":"not ready"}` + "\n"
 	if rec.Body.String() != expected {
 		t.Fatalf("expected body %q, got %q", expected, rec.Body.String())
 	}
 }
 
-func TestCreateReleaseHandler(t *testing.T) {
+func TestCreateReleaseHandlerRejectsMissingFields(t *testing.T) {
+	app := newApp(nil)
+
 	body := strings.NewReader(`{
-                "serviceName": "payment-api",
-                "version": "v1.0.0",
-                "environment": "dev",
-                "owner": "lan"
-        }`)
+		"serviceName": "payment-api",
+		"version": "v1.0.0"
+	}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/releases", body)
 	rec := httptest.NewRecorder()
 
-	createReleaseHandler(rec, req)
+	app.createReleaseHandler(rec, req)
 
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("expected status %d, got %d", http.StatusCreated, rec.Code)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
 	}
 
-	responseBody := rec.Body.String()
-
-	requiredParts := []string{
-		`"serviceName":"payment-api"`,
-		`"version":"v1.0.0"`,
-		`"environment":"dev"`,
-		`"status":"pending"`,
-		`"owner":"lan"`,
-		`"createdAt":`,
-		`"updatedAt":`,
-	}
-
-	for _, part := range requiredParts {
-		if !strings.Contains(responseBody, part) {
-			t.Fatalf("expected response body to contain %q, got %s", part, responseBody)
-		}
+	expected := `{"error":"serviceName, version, environment, and owner are required"}` + "\n"
+	if rec.Body.String() != expected {
+		t.Fatalf("expected body %q, got %q", expected, rec.Body.String())
 	}
 }
