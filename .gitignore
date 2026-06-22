@@ -17,4 +17,5 @@ dest/
 *.swap
 .idea/
 .vscode/
-*.md
+AGENTS.md
+.codex-local/
