@@ -1,0 +1,11 @@
+.git
+.gitignore
+AGENTS.md
+.codex-local/
+bin/
+dist/
+tmp/
+*.log
+Dockerfile
+README.md
+docs/
