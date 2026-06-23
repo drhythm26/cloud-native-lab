@@ -6,7 +6,9 @@ dest/
 *.tfstate.*
 *.tfstat
 *.tfstat.*
-.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
 *.pem
 *.key
 *-key.json
