@@ -13,7 +13,7 @@ env:
 
 permissions:
   contents: read
-  id-tocken: write
+  id-token: write
 
 jobs:
   test:
