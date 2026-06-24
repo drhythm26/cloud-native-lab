@@ -1,6 +1,6 @@
 image:
   repository: asia-east2-docker.pkg.dev/dev-2026522/release-tracker/release-tracker-api
-  tag: v0.1.0
+  tag: 8315f14
 
 api:
   replicas: 2
