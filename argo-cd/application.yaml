@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: release-tracker
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/drhythm26/cloud-native-lab.git
+    targetRevision: HEAD
+    path: helm-charts/release-tracker
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: release-tracker
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
