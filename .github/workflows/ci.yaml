@@ -51,4 +51,4 @@ jobs:
       - name: Print image
         run: |
           echo "Image pushed:"
-          echo "${{ env.REGION }}-docker.pkg.dev/${${ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ env.IMAGE_TAG }}"
+          echo "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ env.IMAGE_TAG }}"
