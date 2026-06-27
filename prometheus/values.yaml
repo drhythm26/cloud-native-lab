@@ -1,6 +1,0 @@
-grafana:
-  service:
-    type: LoadBalancer
-prometheus:
-  prometheusSpec:
-    serviceMonitorSelectorNilUsesHelmValues: false

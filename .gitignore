@@ -21,3 +21,5 @@ dest/
 .vscode/
 AGENTS.md
 .codex-local/
+.coach/
+/apps/

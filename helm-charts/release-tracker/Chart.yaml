@@ -1,6 +1,0 @@
-apiVersion: v2
-name: release-tracker
-description: Cloud Native Release Tracker API
-type: application
-version: 0.1.0
-appVersion: "v0.1.0"
