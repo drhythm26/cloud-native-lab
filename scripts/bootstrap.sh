@@ -31,7 +31,7 @@ precheck() {
     log "所有必需命令都已安装"
     gcloud auth application-default print-access-token &>/dev/null || error "未配置 Google Cloud 凭证"
     log "已配置 Google Cloud 凭证"
-    timeout 10s kubectl cluster-info &>/dev/null || error "无法连接到 Kubernetes 集群"
+    timeout 20s kubectl cluster-info &>/dev/null || error "无法连接到 Kubernetes 集群"
     log "已连接到 Kubernetes 集群"
 }   
 
