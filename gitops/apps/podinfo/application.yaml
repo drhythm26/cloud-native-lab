@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/drhythm26/cloud-native-lab
-    targetRevision: main
+    targetRevision: platform/podinfo
     path: gitops/apps/podinfo
     helm:
       valueFiles:
