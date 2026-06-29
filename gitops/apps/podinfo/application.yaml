@@ -11,6 +11,7 @@ spec:
     path: gitops/apps/podinfo
     helm:
       valueFiles:
+        - default-values.yaml
         - values.yaml
   destination:
     server: https://kubernetes.default.svc
