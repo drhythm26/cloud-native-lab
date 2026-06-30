@@ -14,7 +14,7 @@ spec:
         valueFiles:
           - $values/gitops/argocd/values.yaml
     - repoURL: https://github.com/drhythm26/cloud-native-lab
-      targetRevision: platform/podinfo
+      targetRevision: platform-main
       ref: values
   destination:
     server: https://kubernetes.default.svc
