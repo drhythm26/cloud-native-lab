@@ -41,29 +41,38 @@ install_argocd() {
     local namespace="argocd"
     local release="argo-cd"
     local chart="argo/argo-cd"
-    local values="${ROOT_DIR}/gitops/platform/argocd/values.yaml"
+    local chart_revision="7.8.2"
+    local values="${ROOT_DIR}/gitops/argocd/values.yaml"
     log "开始安装 Argo CD"
     [[ -f "${values}" ]] || error "找不到values文件: ${values}"
     helm repo add argo https://argoproj.github.io/argo-helm 2>/dev/null || true
     helm repo update
     helm upgrade --install "${release}" "${chart}" \
+        --version "${chart_revision}" \
         --namespace "${namespace}" --create-namespace \
         -f "${values}" \
         --wait --timeout 10m
-    log "Argo CD 安装成功"
-    log "UI 访问:"
-    log "kubectl port-forward svc/argo-cd-argocd-server -n ${namespace} 8080:443"
-    log "浏览器访问: http://localhost:8080"
-    log "管理员用户名: admin"
-    log "管理员密码: $(kubectl get secret -n ${namespace} argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)"
 }
 
-
+install_application_root() {
+    local application_root_yaml="${ROOT_DIR}/gitops/application-root.yaml"
+    [[ -f "${application_root_yaml}" ]] || error "找不到application_root_yaml文件: ${application_root_yaml}"
+    log "等待 Argo CD CRD 就绪"
+    kubectl wait --for condition=established --timeout=60s crd/applications.argoproj.io
+    log "注册 App of Apps: applications-root"
+    kubectl apply -f "${application_root_yaml}"
+}
 
 main() {
     log "开始 bootstrap"
     precheck
     install_argocd
+    install_application_root
+    log "Argo CD 安装成功"
+    log "运行:kubectl port-forward svc/argo-cd-argocd-server -n argocd 8080:443"
+    log "UI 访问: http://localhost:8080"
+    log "管理员用户名: admin"
+    log "管理员密码: $(kubectl get secret -n argocd argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)"
 }
 
 main "$@"
