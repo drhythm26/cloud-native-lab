@@ -1,20 +1,24 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: applications-root
+  name: podinfo
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/drhythm26/cloud-native-lab
-    targetRevision: platform/podinfo
-    path: gitops/applications
-    directory:
-      recurse: true
+    targetRevision: applications
+    path: podinfo
+    helm:
+      valueFiles:
+        - default-values.yaml
+        - values.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: podinfo
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
