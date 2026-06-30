@@ -5,13 +5,14 @@ image:
   pullPolicy: IfNotPresent
 service:
   type: ClusterIP
-  port: 9898
-livenessProbe:
-  initialDelaySeconds: 5
-  periodSeconds: 10
-readnessProbe:
-  initialDelaySeconds: 5
-  periodSeconds: 10
+  httpPort: 9898
+probes:
+  liveness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
 resources:
   requests:
     cpu: 100m
