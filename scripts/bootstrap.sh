@@ -56,11 +56,14 @@ install_argocd() {
 
 install_application_root() {
     local application_root_yaml="${ROOT_DIR}/gitops/application-root.yaml"
+    local platform_root_yaml="${ROOT_DIR}/gitops/platform-root.yaml"
     [[ -f "${application_root_yaml}" ]] || error "找不到application_root_yaml文件: ${application_root_yaml}"
+    [[ -f "${platform_root_yaml}" ]] || error "找不到platform_root_yaml文件: ${platform_root_yaml}"
     log "等待 Argo CD CRD 就绪"
     kubectl wait --for condition=established --timeout=60s crd/applications.argoproj.io
-    log "注册 App of Apps: applications-root"
+    log "注册 App of Apps: applications-root 和 platform-root"
     kubectl apply -f "${application_root_yaml}"
+    kubectl apply -f "${platform_root_yaml}"
 }
 
 main() {
