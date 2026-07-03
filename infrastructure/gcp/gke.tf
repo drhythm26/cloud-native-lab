@@ -13,6 +13,7 @@ resource "google_container_cluster" "primary" {
     google_project_service.container,
     google_compute_subnetwork.subnet,
   ]
+  deletion_protection = false
 }
 
 resource "google_container_node_pool" "primary" {
