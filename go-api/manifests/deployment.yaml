@@ -18,3 +18,22 @@ spec:
           image: ghcr.io/drhythm26/go-api:0.1.0
           ports:
             - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /heathz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
