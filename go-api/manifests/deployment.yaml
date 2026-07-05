@@ -17,7 +17,8 @@ spec:
         - name: go-api
           image: ghcr.io/drhythm26/go-api:0.1.0
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           readinessProbe:
             httpGet:
               path: /heathz
