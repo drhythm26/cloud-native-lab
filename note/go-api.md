@@ -25,23 +25,6 @@ conditions:
 error: deployment "go-api" exceeded its progress deadline
 ```
 
-修复：
-给 container port 加上名字，和探针里的 `port: http` 对应：
-
-```yaml
-ports:
-  - name: http
-    containerPort: 8080
-readinessProbe:
-  httpGet:
-    path: /healthz
-    port: http
-livenessProbe:
-  httpGet:
-    path: /healthz
-    port: http
-```
-
 结论：
 
 - 探针 `port` 可以是**端口号**（如 `8080`）或**端口名**（如 `http`）；用名字时，必须在 `containers.ports` 里声明同名 `name`
@@ -50,7 +33,7 @@ livenessProbe:
 
 
 
-## 02 readiness path 拼错仍 Ready（`/` 兜底导致探针假绿）
+## 02 readiness path 拼错仍 Ready
 
 操作：
 修复 port 命名后，readiness 探针 path 误写为 `/heathz`（少了一个 `l`），liveness 写的是正确的 `/healthz`。
@@ -103,16 +86,6 @@ kubelet GET /heathz
 - liveness 和 readiness path 不一致时，两个探针测到的可能是不同 handler
 - 规避：探针只用专用 path（如 `/healthz`）；生产里未知 path 返回 404 而非走 `/` 兜底；CI 里 curl 验证探针 path 的响应 body
 
-修复：
-readiness 与 liveness 统一为 `/healthz`：
-
-```yaml
-readinessProbe:
-  httpGet:
-    path: /healthz
-    port: http
-```
-
 
 
 ## 03 memory limit 5Mi vs 1Mi → OOMKilled
@@ -128,17 +101,11 @@ NAME                          READY   STATUS              RESTARTS   AGE
 go-api-c8697d8b8-9f6gc        1/1     Running             20         25h   # limit 5Mi
 go-api-7c7dd87c44-6l4kb       0/1     ContainerCreating   0          25h   # limit 1Mi
 
-> kubectl get pod -n go-api -l app=go-api \
-    -o custom-columns=NAME:.metadata.name,MEMORY:.spec.containers[0].resources.limits.memory,READY:.status.conditions[?(@.type=="Ready")].status
-NAME                       MEMORY   READY
-go-api-c8697d8b8-9f6gc     5Mi      True
-go-api-7c7dd87c44-6l4kb    1Mi      False
-
 > kubectl top pod -n go-api
 NAME                     CPU(cores)   MEMORY(bytes)
 go-api-c8697d8b8-9f6gc   1m           2Mi              # 实际用量约 2Mi
 
-> kubectl describe pod go-api-c8697d8b8-9f6gc -n go-api
+> kubectl describe pod go-api-c8697d8b8-9f6gc -n go-api | grep -A3 "LastState"
 Last State:     Terminated
   Reason:       OOMKilled
 Restart Count:  20
@@ -151,43 +118,41 @@ Warning  Unhealthy                 pod/go-api-c8697d8b8-9f6gc   Readiness probe 
 # Progressing: False, Reason: ProgressDeadlineExceeded
 ```
 
-5Mi 的 Pod 显示 `1/1 Running`，但新 1Mi 的 Pod 卡在 `ContainerCreating` 25h；`kubectl get deploy` 仍显示 `1/1`，容易误以为正常。
 
 原因：
 
 ```text
-实际内存用量约 2Mi（kubectl top）
-
 limit 1Mi  →  低于启动所需  →  sandbox 创建阶段 OOM，Pod 起不来
 limit 5Mi  →  勉强够跑      →  能 Running，但峰值 时仍 OOM，反复重启
 limit 64Mi →  有余量        →  稳定
 ```
 
-两个 ReplicaSet 的 Pod **limits 不同**（旧 5Mi 还在跑，新 1Mi 起不来），所以 `deploy READY 1/1` 不能说明 rollout 成功。
+结论：
+- limits memory太小可能导致 sandbox OOM 或着 running 阶段 OOM 导致频繁重启，startCount数值增加
+
+## 04 memory request 24Gi -> FailedScheduling
+操作:
+在`go-api/manifests/deployment.yaml`中将`requests`和`limits`的`memory`调到`24Gi`超过了`node`的实际可用内存
+现象:
+```bash
+> kubectl get pod go-api-677594bcd4-q9pd8 -n go-api
+NAME                      READY   STATUS    RESTARTS   AGE
+go-api-677594bcd4-q9pd8   0/1     Pending   0          18m
+
+> kubectl describe -n go-api pod go-api-677594bcd4-q9pd8 | grep -A10 Events
+Events:
+  Type     Reason             Age                   From                Message
+  ----     ------             ----                  ----                -------
+  Normal   NotTriggerScaleUp  2m21s (x92 over 17m)  cluster-autoscaler  Pod didnt trigger scale-up:
+  Warning  FailedScheduling   2m16s (x4 over 17m)   default-scheduler   0/1 nodes are available: 1 Insufficient memory. no new claims to deallocate, preemption: 0/1 nodes are available: 1 Preemption is not helpful forscheduling.
+
+> kubectl describe -n go-api pod go-api-677594bcd4-q9pd8 | grep -A3 Conditions
+Conditions:
+  Type           Status
+  PodScheduled   False 
+```
+原因：
+`requests.memory: 24Gi`在`PodScheduled`阶段就失败了，24Gi memory太大了，node的可用内存不够，所以pod一直处在pending
 
 结论：
-
-- `1Mi` 和 `5Mi` 不是「都能跑」：5Mi 是旧 Pod 硬撑，1Mi 新 Pod 从未起来
-- 看状态不能只看 `get deploy`，要看 `get pods`（几个、RESTARTS）、`get rs`（是否两套）、每个 Pod 的 `limits`
-- `describe pod` 里 `Last State: OOMKilled` + 高 `Restart Count` = 内存 limit 过紧
-- Events 关键词：`OOM-killed (memory limit too low?)`
-
-修复：
-恢复合理内存，apply 后 rollout：
-
-```yaml
-resources:
-  requests:
-    cpu: 50m
-    memory: 64Mi
-  limits:
-    cpu: 200m
-    memory: 128Mi
-```
-
-```sh
-kubectl apply -f go-api/manifests/
-kubectl rollout restart deploy/go-api -n go-api
-kubectl rollout status deploy/go-api -n go-api
-```
-
+- 太大的requests会导致Schedule阶段无法找到合适的node，卡在pending状态
