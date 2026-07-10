@@ -156,3 +156,26 @@ Conditions:
 
 结论：
 - 太大的requests会导致Schedule阶段无法找到合适的node，卡在pending状态
+
+## configmap not found
+
+操作:
+在 deployment中挂载一个不存在的configMap
+
+现象:
+```sh
+>kubectl get pods -n go-api
+NAME                      READY   STATUS              RESTARTS   AGE
+go-api-549498c6b9-gjj5v   0/1     ContainerCreating   0          13m
+go-api-658dc48445-rctkz   1/1     Running             0          8h
+
+>kubectl describe pod go-api-549498c6b9-gjj5v  -n go-api | grep -A10 Events
+Events:
+  Type     Reason       Age                  From               Message
+  ----     ------       ----                 ----               -------
+  Normal   Scheduled    12m                  default-scheduler  Successfully assigned go-api/go-api-549498c6b9-gjj5v to gke-cloud-native-lab-cloud-native-lab-a86274cc-eaex
+  Warning  FailedMount  113s (x13 over 12m)  kubelet            MountVolume.SetUp failed for volume "config" : configmap "go-api-config" not found
+```
+
+结论：
+- 如果configmap不存在，pod schedule阶段没问题，会倒在volume 挂载阶段容器启动阶段找不到挂载的configmap
