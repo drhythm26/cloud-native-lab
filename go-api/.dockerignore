@@ -1,1 +1,3 @@
 Dockerfile
+manifests/
+go-api/
