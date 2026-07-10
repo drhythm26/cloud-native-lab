@@ -157,7 +157,7 @@ Conditions:
 结论：
 - 太大的requests会导致Schedule阶段无法找到合适的node，卡在pending状态
 
-## configmap not found
+## 05 configmap not found
 
 操作:
 在 deployment中挂载一个不存在的configMap
@@ -178,4 +178,51 @@ Events:
 ```
 
 结论：
-- 如果configmap不存在，pod schedule阶段没问题，会倒在volume 挂载阶段容器启动阶段找不到挂载的configmap
+- 如果configmap不存在，pod schedule阶段没问题，会倒在volume 挂载阶段找不到挂载的configmap 而FailedMount
+
+## 06 configMap 挂载细节
+现象：
+```sh
+> kubectl run -n go-api curl --rm --restart=Never -i --image=curlimages/curl 
+-n go-api -- curl -s http://go-api.go-api.svc.cluster.local:8080/file
+{"..data":"read error: read /etc/go-api/..data: is a directory","greeting.txt":"hello from configmap\n"}
+pod "curl" deleted from go-api namespace
+```
+原因:
+```sh
+# configMap 不是直接落盘普通文件，而是 symlink 投影
+# 目录结构如下
+> kubectl debug -i go-api-698d984fbf-r44qv -n go-api \
+  --image=busybox:1.36 --target=go-api \
+  -- ls -laR /proc/1/root/etc/go-api/
+Targeting container "go-api". If you don't see processes from this container it may be because the container runtime doesn't support this feature.
+Defaulting debug container name to debugger-lcsnr.
+/proc/1/root/etc/go-api/:
+total 12
+drwxrwxrwx    3 root     root          4096 Jul  9 15:22 .
+drwxr-xr-x    1 root     root          4096 Jul  9 15:22 ..
+drwxr-xr-x    2 root     root          4096 Jul  9 15:22 ..2026_07_09_15_22_28.171103442
+lrwxrwxrwx    1 root     root            31 Jul  9 15:22 ..data -> ..2026_07_09_15_22_28.171103442
+lrwxrwxrwx    1 root     root            19 Jul  9 15:22 greeting.txt -> ..data/greeting.txt
+
+/proc/1/root/etc/go-api/..2026_07_09_15_22_28.171103442:
+total 12
+drwxr-xr-x    2 root     root          4096 Jul  9 15:22 .
+drwxrwxrwx    3 root     root          4096 Jul  9 15:22 ..
+-rw-r--r--    1 root     root            21 Jul  9 15:22 greeting.txt
+
+# 同时main.go中IsDir()看到是软链接就不会continue
+# 要用os.Stat()深入到底看看是什么文件
+```
+修复:
+```go
+  path := "/etc/go-api/" + e.Name()
+  info, err := os.Stat(path)
+  if err != nil || !info.Mode().IsRegular(){
+    continue
+  }
+```
+
+结论：
+- 要注意configMap 在pod中的挂载细节
+- go Stat()跟随链接，Isregular只收普通文件，跳过..data
