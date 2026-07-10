@@ -38,10 +38,11 @@ func fileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	files := map[string]string{}
 	for _, e := range entries {
-		if e.IsDir() {
+		path := "/etc/go-api/" + e.Name()
+		info, err := os.Stat(path)
+		if err != nil || !info.Mode().IsRegular() {
 			continue
 		}
-		path := "/etc/go-api/" + e.Name()
 		data, err := os.ReadFile(path)
 		if err != nil {
 			files[e.Name()] = "read error: " + err.Error()
