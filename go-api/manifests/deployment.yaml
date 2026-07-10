@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: go-api
-          image: ghcr.io/drhythm26/go-api:0.2.0
+          image: ghcr.io/drhythm26/go-api:0.3.0
           env:
             - name: APP_ENV
               valueFrom:
