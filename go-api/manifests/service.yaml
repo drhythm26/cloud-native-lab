@@ -3,9 +3,12 @@ kind: Service
 metadata:
   name: go-api
   namespace: go-api
+  labels:
+    app: go-api
 spec:
   selector:
     app: go-api
   ports:
-    - port: 8080
+    - name: http
+      port: 8080
       targetPort: 8080
