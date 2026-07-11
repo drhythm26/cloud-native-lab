@@ -5,7 +5,32 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+type statusRecoder struct {
+	http.ResponseWriter
+	code int
+}
+
+func (r *statusRecoder) WriteHeader(code int) {
+	r.code = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+var httpRequests = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "go_api_http_requests_total",
+		Help: "Total HTTP requests by path",
+	},
+	[]string{"path", "method", "code"},
+)
+
+func init() {
+	prometheus.MustRegister(httpRequests)
+}
 
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -54,10 +79,23 @@ func fileHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(files)
 }
 
+func withMetrics(path string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rw := &statusRecoder{ResponseWriter: w, code: 200}
+		next(rw, r)
+		httpRequests.WithLabelValues(
+			path,
+			r.Method,
+			strconv.Itoa(rw.code),
+		).Inc()
+	}
+}
+
 func main() {
-	http.HandleFunc("/healthz", healthzHandler)
-	http.HandleFunc("/readyz", readyzHandler)
-	http.HandleFunc("/env", envHandler)
-	http.HandleFunc("/file", fileHandler)
+	http.HandleFunc("/healthz", withMetrics("/healthz", healthzHandler))
+	http.HandleFunc("/readyz", withMetrics("/readyz",readyzHandler))
+	http.HandleFunc("/env", withMetrics("/env", envHandler))
+	http.HandleFunc("/file", withMetrics("/file", fileHandler))
+	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
