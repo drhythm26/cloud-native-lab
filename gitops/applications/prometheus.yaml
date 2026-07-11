@@ -18,7 +18,7 @@ spec:
       ref: values
   destination:
     server: https://kubernetes.default.svc
-    namesapce: prometheus
+    namespace: prometheus
   syncPolicy:
     automated:
       prune: true
