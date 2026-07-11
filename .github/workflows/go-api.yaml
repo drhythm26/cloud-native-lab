@@ -1,0 +1,22 @@
+name: go-api-image
+
+on:
+  push:
+    branches: [applications]
+    paths:
+      - "go-api/**"
+      - ".github/workflows/go-api.yaml"
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go-api/go.mod
+      - run: go build -o api .
