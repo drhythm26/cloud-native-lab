@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"time"
 )
 
 type statusRecoder struct {
@@ -20,16 +21,26 @@ func (r *statusRecoder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
-var httpRequests = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "go_api_http_requests_total",
-		Help: "Total HTTP requests by path",
-	},
-	[]string{"path", "method", "code"},
+var (
+	httpRequests = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "go_api_http_requests_total",
+			Help: "Total HTTP requests by path",
+		},
+		[]string{"path", "method", "code"},
+	)
+	httpDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "go_api_http_request_duration_seconds",
+			Help:    "HTTP request latency in seconds",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"path"},
+	)
 )
 
 func init() {
-	prometheus.MustRegister(httpRequests)
+	prometheus.MustRegister(httpRequests, httpDuration)
 }
 
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
@@ -82,18 +93,22 @@ func fileHandler(w http.ResponseWriter, r *http.Request) {
 func withMetrics(path string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rw := &statusRecoder{ResponseWriter: w, code: 200}
+		start := time.Now()
 		next(rw, r)
+		duration := time.Since(start).Seconds()
+		code := strconv.Itoa(rw.code)
 		httpRequests.WithLabelValues(
 			path,
 			r.Method,
-			strconv.Itoa(rw.code),
+			code,
 		).Inc()
+		httpDuration.WithLabelValues(path).Observe(duration)
 	}
 }
 
 func main() {
 	http.HandleFunc("/healthz", withMetrics("/healthz", healthzHandler))
-	http.HandleFunc("/readyz", withMetrics("/readyz",readyzHandler))
+	http.HandleFunc("/readyz", withMetrics("/readyz", readyzHandler))
 	http.HandleFunc("/env", withMetrics("/env", envHandler))
 	http.HandleFunc("/file", withMetrics("/file", fileHandler))
 	http.Handle("/metrics", promhttp.Handler())
