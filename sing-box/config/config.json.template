@@ -1,0 +1,39 @@
+{
+    "log": {
+        "level": "debug"
+    },
+    "inbounds": [
+        {
+            "type": "vless",
+            "tag": "vless-in",
+            "listen": "::",
+            "listen_port": 443,
+            "users": [
+                {
+                    "name": "u1",
+                    "uuid": "${SB_UUID}",
+                    "flow": "xtls-rprx-vision"
+                }
+            ],
+            "tls": {
+                "enabled": true,
+                "server_name": "www.cloudflare.com",
+                "reality": {
+                    "enabled": true,
+                    "handshake": {
+                        "server": "www.cloudflare.com",
+                        "server_port": 443
+                    },
+                    "private_key": "${SB_PRIVATE_KEY}",
+                    "short_id": ["${SB_SHORT_ID}"]
+                }
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "type": "direct",
+            "tag": "direct"
+        }
+    ]
+}

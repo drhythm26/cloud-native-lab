@@ -1,0 +1,33 @@
+name: go-api-image
+
+on:
+  push:
+    branches: [applications]
+    paths:
+      - "go-api/**"
+      - ".github/workflows/go-api.yaml"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/drhythm26/go-api
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./go-api
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}

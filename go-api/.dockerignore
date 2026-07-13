@@ -1,0 +1,4 @@
+Dockerfile
+manifests/
+go-api/
+docker-compose.yaml

@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sing-box
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sing-box
+  template:
+    metadata:
+      labels:
+        app: sing-box
+    spec:
+      containers:
+        - name: sing-box
+          image: ghcr.io/sagernet/sing-box:v1.13.14
+          args: ["run", "-C", "/etc/sing-box"]
+          ports:
+            - name: vless
+              containerPort: 443
+          volumeMounts:
+            - name: config
+              mountPath: /etc/sing-box
+              readOnly: true
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+      volumes:
+        - name: config
+          secret:
+            secretName: sing-box-config
