@@ -7,8 +7,8 @@ spec:
   project: default
   source:
     repoURL: https://github.com/drhythm26/cloud-native-lab
-    targetRevision: applications
-    path: applications
+    targetRevision: main
+    path: apps/applications
     directory:
       recurse: true
   destination:

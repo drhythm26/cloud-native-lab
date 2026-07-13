@@ -2,9 +2,9 @@ name: go-api-image
 
 on:
   push:
-    branches: [applications]
+    branches: [main]
     paths:
-      - "go-api/**"
+      - "apps/go-api/**"
       - ".github/workflows/go-api.yaml"
 
 env:
@@ -27,7 +27,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         with:
-          context: ./go-api
+          context: ./apps/go-api
           push: true
           tags: |
             ${{ env.IMAGE }}:${{ github.sha }}

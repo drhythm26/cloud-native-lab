@@ -19,7 +19,5 @@ dest/
 *.swap
 .idea/
 .vscode/
-AGENTS.md
 .codex-local/
 .coach/
-/apps/
