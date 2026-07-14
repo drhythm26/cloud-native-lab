@@ -10,6 +10,8 @@ REQUIRED_CMDS=("kubectl" "terraform" "gcloud" "helm")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+readonly ARGOCD_VERSION="10.1.3"
+
 log() {
     echo -e "${GREEN}[bootstrap] LOG: $*${NC}"
 }
@@ -41,14 +43,13 @@ install_argocd() {
     local namespace="argocd"
     local release="argo-cd"
     local chart="argo/argo-cd"
-    local chart_revision="7.8.2"
     local values="${ROOT_DIR}/gitops/argocd/values.yaml"
-    log "开始安装 Argo CD"
+    log "开始安装 Argo CD (chart ${ARGOCD_VERSION})"
     [[ -f "${values}" ]] || error "找不到values文件: ${values}"
     helm repo add argo https://argoproj.github.io/argo-helm 2>/dev/null || true
-    helm repo update
+    helm repo update argo
     helm upgrade --install "${release}" "${chart}" \
-        --version "${chart_revision}" \
+        --version "${ARGOCD_VERSION}" \
         --namespace "${namespace}" --create-namespace \
         -f "${values}" \
         --wait --timeout 10m
