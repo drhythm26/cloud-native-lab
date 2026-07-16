@@ -23,7 +23,7 @@ applications-root ──→ apps/applications/ (recurse)
 
 ### argocd(自管)
 
-多源 Application:chart 来自 `argoproj.github.io/argo-helm`(版本 `10.1.3`),values 来自本仓 `gitops/argocd/values.yaml`(`$values` 引用)。bootstrap 时先用 helm 手装一个旧版,注册根应用后由这个 Application 接管并升级——Argo CD 从此自己管理自己。
+多源 Application:chart 来自 `argoproj.github.io/argo-helm`(版本 `10.1.3`),values 来自本仓 `gitops/argocd/values.yaml`(`$values` 引用)。bootstrap 时先用 helm 手装同一版本,注册根应用后由这个 Application 接管——Argo CD 从此自己管理自己。
 
 ### prometheus(kube-prometheus-stack)
 
@@ -31,7 +31,8 @@ applications-root ──→ apps/applications/ (recurse)
 
 - `ServerSideApply=true`:CRD 注解超过 262KB 限制,必须 server-side apply(踩坑见 commit `c4d449b`)
 - values 里 `serviceMonitorSelectorNilUsesHelmValues: false`:让 Prometheus 选中所有带 `release: prometheus` 标签的 ServiceMonitor,而不仅是 chart 自带的
-- Grafana Service 为 LoadBalancer
+- Grafana Service 为 ClusterIP,访问用 `kubectl -n prometheus port-forward svc/prometheus-grafana 3000:80`
+- GKE 托管控制面组件(scheduler / controller-manager / etcd / kube-proxy / coredns)的抓取已关闭,避免常驻 DOWN 目标
 
 ## Bootstrap 顺序
 
