@@ -1,6 +1,19 @@
 grafana:
   service:
-    type: LoadBalancer
+    type: ClusterIP
+
+# GKE 托管控制面：以下组件不对用户暴露，关闭抓取与内置告警，避免常驻 DOWN / absent 噪音。
+# coredns 一项在 GKE 实为 kube-dns，9153 端口无监听。
+coreDns:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
 
 prometheus:
   prometheusSpec:
