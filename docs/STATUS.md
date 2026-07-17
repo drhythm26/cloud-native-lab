@@ -2,9 +2,9 @@
 
 > 记录当前事实、学习进度和下一步。协作规则见 [`../AGENTS.md`](../AGENTS.md)。
 
-**最后更新**：2026-07-15
+**最后更新**：2026-07-16
 
-**当前焦点**：冲刺简历作品集。第一梯队（Grafana Dashboard、PrometheusRule 告警、go-api 中间件改造、监控卫生）完成即开始投递，SRE/云原生 与 Go 后端两个方向并投。
+**当前焦点**：冲刺简历作品集。第一梯队剩余：PrometheusRule 告警、go-api 中间件改造；完成后开始投递，SRE/云原生 与 Go 后端两个方向并投。
 
 ## 当前系统
 
@@ -27,6 +27,7 @@
 - podinfo 由 Argo CD 管理；go-api 和 sing-box 目前手动部署。
 - go-api 镜像由 GitHub Actions 推送到 GHCR，Deployment 手动固定 commit SHA。
 - Terraform state 目前保存在本地。
+- go-api RED Dashboard JSON 路径：`gitops/prometheus/dashboard/go-api-red.json`（手动 Import；尚未做 Grafana 自动供应）。
 
 ## 学习路线
 
@@ -44,9 +45,10 @@
 - [x] 掌握 `rate()`、`sum by()` / `without`、label 匹配、`histogram_quantile()`、`increase()`、`topk()`
 - [x] 用 go-api / podinfo 指标计算 QPS、错误率和 P95 延迟
 - [x] 掌握 RED 方法（QPS / 错误率 / 延迟全程手写）
-- [ ] 创建 go-api Grafana Dashboard
+- [x] 创建 go-api Grafana RED Dashboard，并导出 JSON 入库（`gitops/prometheus/dashboard/go-api-red.json`）
 - [ ] 编写 PrometheusRule，理解 `for` / labels / annotations
 - [ ] 掌握四大黄金信号和 USE
+- [ ] podinfo RED Dashboard（可选迁移练习；非首投阻塞）
 
 ### 3. 应用与 Kubernetes 对象 `[ ]`
 
@@ -72,26 +74,36 @@
 - 会读监控图：no data 和 0 是两种状态；爬坡宽度 ≈ rate 窗口宽度；histogram 分位数是桶内线性插值的估计值，精度受 bucket 布局限制。
 - 排障方法论：顺数据流逐环检查（Prometheus → ServiceMonitor → Service → Endpoint → Pod）；比值异动先拆分子分母；`kubectl get endpoints` 是 Service 链路的分流判断点。
 - 理解 GitOps 修复原则：集群状态与 Git 对齐，修复用 manifests apply 而非手动 patch；`kubectl port-forward` 钉死单个 pod，不做负载均衡。
+- 监控卫生：减少无效 scrape 噪音、收敛 Grafana 暴露面（ClusterIP）；用 `up` / HTTP API 与 Web UI 交叉验收 Targets。
+- go-api RED：手写 QPS / 5xx 错误率 / P95；Grafana 三面板分单位展示；Dashboard JSON 由 UI 导出后纳入 Git（非手写 JSON）。
+- 基线 QPS 可与探针周期交叉验证（双探针 10s → 约 0.2 req/s）。
 
 ## 下一步
 
-冲刺至首投（第一梯队）：
+冲刺至首投（第一梯队剩余）：
 
-1. Grafana RED Dashboard（go-api / podinfo），完成后导出 JSON 入库（dashboard as code）。
-2. PrometheusRule 三条告警（错误率、P95、target down），理解 `for` / labels / annotations。
-3. go-api metrics 中间件改造（统计 404、路由模板防基数爆炸），走完整交付链（CI 构建 → pin SHA → apply）。
-4. 监控卫生：Grafana 收回 ClusterIP、关闭 GKE 托管控制面无效抓取（values 已改，待 push 生效）。
+1. PrometheusRule 三条告警（错误率、P95、target down），理解 `for` / labels / annotations。
+2. go-api metrics 中间件改造（统计 404、路由模板防基数爆炸），走完整交付链（CI 构建 → pin SHA → apply）。
+3. （可选）podinfo RED Dashboard；Dashboard 经 ConfigMap/sidecar 自动供应到 Grafana。
 
 首投后（第二梯队）：go-api 纳入 Argo、MySQL（StatefulSet + PVC）+ Redis 接入、HPA / PDB / 优雅终止、`make check` + PR CI、根 README 作品集化。
-排障演练（剩 2 次）与 note 07 复盘在面试前补足。
+排障演练（剩 2 次）与 note 复盘在面试前补足。
 
 ## 已知问题
 
 - Terraform state 仍在本地，后续考虑迁移到 GCS backend。
 - 仓库暂无统一 `make check` 和完整的 Pull Request 检查。
-- 监控卫生问题（Grafana 公网默认口令、GKE 托管控制面抓取常驻 DOWN）已在 values 修复，待 commit + push 后由 Argo 同步生效。
+- go-api RED Dashboard JSON 已落盘，但未配置 Grafana 自动加载；换环境需手动 Import。
+- `go-api-red.json` 目前可能仍为本地未提交变更，需 commit 后进入 `main` 版本历史。
 
 ## 最近记录
+
+### 2026-07-16
+
+- 监控卫生验收：Grafana Service 为 ClusterIP；Prometheus Targets 中 go-api / podinfo 为 UP；筛 DOWN 无常驻无效控制面噪音。values 修复此前已合入 `main`。
+- 用 Prometheus HTTP API（`/-/healthy`、`/api/v1/query`）验收 `up` 与 RED 查询；巩固指标名 typo 导致 `result: []` 静默为空。
+- 完成 go-api Grafana RED 三面板（QPS / 5xx 错误率 / P95）；无 5xx 时 Error 面板 No data 为预期。
+- Dashboard JSON 导出至 `gitops/prometheus/dashboard/go-api-red.json`。
 
 ### 2026-07-15
 
