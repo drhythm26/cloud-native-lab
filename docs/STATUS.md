@@ -2,7 +2,7 @@
 
 > 只记当前事实、路线进度、下一步和已知问题。协作规则见 [`../AGENTS.md`](../AGENTS.md)，历史变更看 git log。
 
-**最后更新**：2026-07-19
+**最后更新**：2026-07-20
 
 **当前焦点**：冲刺简历首投（SRE/云原生 与 Go 后端并投）。第一梯队剩余：go-api 中间件改造。PrometheusRule 已结课（2026-07-19，错题 4 条待复测，见 `docs/mistakes.md`）。
 
@@ -42,14 +42,13 @@
 
 ## 下一步
 
-1. commit `prometheusrule.yaml` + 本轮文档精简。
-2. go-api metrics 中间件（统计 404、路由模板防基数爆炸），走完整交付链：CI 构建 → pin SHA → apply。
-3. 首投前补齐：剩余 2 次故障演练；错题本 4 条复测。
-4. 首投后：go-api 纳入 Argo、MySQL / Redis、HPA / PDB / 优雅终止、`make check` + PR CI、根 README 作品集化。
+1. go-api metrics 中间件（统计 404、路由模板防基数爆炸），走完整交付链：CI 构建 → pin SHA → apply。
+2. 首投前补齐：剩余 2 次故障演练；错题本 4 条复测。
+3. 首投后：go-api 纳入 Argo、MySQL / Redis、HPA / PDB / 优雅终止、`make check` + PR CI、根 README 作品集化。
 
 ## 已知问题
 
 - Terraform state 在本地，未迁 GCS backend。
 - 无统一 `make check` 和 PR CI。
 - Grafana Dashboard 未自动供应，换环境需手动 Import。
-- `prometheusrule.yaml` 已 apply 但未 commit，集群与 Git 暂时不一致。
+- 本地领先 origin/main 3 个 commit，待 push。
