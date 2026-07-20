@@ -1,0 +1,44 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: go-api
+  namespace: go-api
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: GoAPIRED
+      rules:
+        - alert: ALotError5xx
+          expr: |
+            sum(increase(go_api_http_requests_total{code=~"5.."}[5m])) > 10
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GoAPI A Lot Error for 5xx"
+            description: |
+              Error Number: {{ $value }}
+        - alert: HighLatency
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(go_api_http_request_duration_seconds_bucket[5m]))by(le)
+            ) > 0.1
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GoAPI High Latency"
+            description: |
+              Latency: {{ $value }}
+        - alert: Down
+          expr: |
+            up{job="go-api"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "GoAPI Down"
+            description: |
+              job: {{ $labels.job }}
