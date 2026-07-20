@@ -90,27 +90,36 @@ func fileHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(files)
 }
 
-func withMetrics(path string, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func notFoundHandler(w http.ResponseWriter, r *http.Request) {
+	http.NotFound(w, r)
+}
+
+func withMetrics(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rw := &statusRecoder{ResponseWriter: w, code: 200}
+		if r.URL.Path == "/metrics" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		start := time.Now()
-		next(rw, r)
-		duration := time.Since(start).Seconds()
+		next.ServeHTTP(rw, r)
+		path := r.Pattern
+		if path == "/" {
+			path = "unmatched"
+		}
 		code := strconv.Itoa(rw.code)
-		httpRequests.WithLabelValues(
-			path,
-			r.Method,
-			code,
-		).Inc()
-		httpDuration.WithLabelValues(path).Observe(duration)
-	}
+		httpRequests.WithLabelValues(path, r.Method, code).Inc()
+		httpDuration.WithLabelValues(path).Observe(time.Since(start).Seconds())
+	})
 }
 
 func main() {
-	http.HandleFunc("/healthz", withMetrics("/healthz", healthzHandler))
-	http.HandleFunc("/readyz", withMetrics("/readyz", readyzHandler))
-	http.HandleFunc("/env", withMetrics("/env", envHandler))
-	http.HandleFunc("/file", withMetrics("/file", fileHandler))
-	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", healthzHandler)
+	mux.HandleFunc("/readyz", readyzHandler)
+	mux.HandleFunc("/env", envHandler)
+	mux.HandleFunc("/file", fileHandler)
+	mux.HandleFunc("/", notFoundHandler)
+	mux.Handle("/metrics", promhttp.Handler())
+	log.Fatal(http.ListenAndServe(":8080", withMetrics(mux)))
 }
