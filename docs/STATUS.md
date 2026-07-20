@@ -1,10 +1,10 @@
 # 项目状态
 
-> 记录当前事实、学习进度和下一步。协作规则见 [`../AGENTS.md`](../AGENTS.md)。
+> 只记当前事实、路线进度、下一步和已知问题。协作规则见 [`../AGENTS.md`](../AGENTS.md)，历史变更看 git log。
 
-**最后更新**：2026-07-16
+**最后更新**：2026-07-19
 
-**当前焦点**：冲刺简历作品集。第一梯队剩余：PrometheusRule 告警、go-api 中间件改造；完成后开始投递，SRE/云原生 与 Go 后端两个方向并投。
+**当前焦点**：冲刺简历首投（SRE/云原生 与 Go 后端并投）。第一梯队剩余：go-api 中间件改造。PrometheusRule 已结课（2026-07-19，错题 4 条待复测，见 `docs/mistakes.md`）。
 
 ## 当前系统
 
@@ -17,104 +17,39 @@
 | 应用 | go-api | CI 构建 + 手动 apply | 已部署 |
 | 实验 | sing-box | Kustomize 手动部署 | 已部署 |
 
-架构详细见根目录和各组件 `README.md`。
-
 ## 已确定的约定
 
-- `main` 是 GitOps 同步源和 go-api 镜像构建分支。
-- Argo CD 使用 App of Apps，`prune` 和 `selfHeal` 均已开启。
-- Argo CD 和 Prometheus 使用多源 Application 引用本仓库 values。
-- podinfo 由 Argo CD 管理；go-api 和 sing-box 目前手动部署。
-- go-api 镜像由 GitHub Actions 推送到 GHCR，Deployment 手动固定 commit SHA。
-- Terraform state 目前保存在本地。
-- go-api RED Dashboard JSON 路径：`gitops/prometheus/dashboard/go-api-red.json`（手动 Import；尚未做 Grafana 自动供应）。
+- `main` 是 GitOps 同步源和 go-api 镜像构建分支；Argo CD App of Apps，`prune` + `selfHeal` 开启。
+- go-api 镜像由 GitHub Actions 推 GHCR，Deployment 手动 pin commit SHA。
+- Terraform state 保存在本地。
+- go-api RED Dashboard JSON：`gitops/prometheus/dashboard/go-api-red.json`（手动 Import，未自动供应）。
 
 ## 学习路线
 
-### 1. Kubernetes 排障 `[~]`
+1. **K8s 排障** `[~]`：probes / OOMKilled / FailedScheduling / 挂载 / Service-selector 已练；剩故障演练 2 次、异常状态归类、固化排障顺序。
+2. **Prometheus / PromQL** `[~]`：PromQL 核心函数、RED 手写、Grafana Dashboard、PrometheusRule 已完成；黄金信号 / USE 未学。
+3. **应用与 K8s 对象** `[ ]`：go-api 路由与测试、Deployment/Service/ConfigMap/Secret/HPA/PDB、优雅终止、MySQL + Redis（StatefulSet / PVC）。
+4. **交付与安全** `[ ]`：Ingress / TLS、go-api 纳入 GitOps、External Secrets、NetworkPolicy / RBAC / Workload Identity。
 
-- [x] probes、OOMKilled、FailedScheduling、FailedMount、ConfigMap 挂载
-- [ ] 形成固定排障顺序：Pod 状态 → Events → describe → logs → YAML
-- [x] Service / EndpointSlice / selector 排障（演练：selector 改错 → Endpoint 空）
-- [ ] CrashLoopBackOff / ImagePullBackOff / Pending / Evicted 归类
-- [ ] 完成至少 3 次“故障注入 → 定位 → 修复 → 复盘”（已完成 1/3）
+## 已掌握（面试复习索引）
 
-### 2. Prometheus / Grafana / PromQL `[~]`
-
-- [x] 确认 go-api 和 podinfo Targets
-- [x] 掌握 `rate()`、`sum by()` / `without`、label 匹配、`histogram_quantile()`、`increase()`、`topk()`
-- [x] 用 go-api / podinfo 指标计算 QPS、错误率和 P95 延迟
-- [x] 掌握 RED 方法（QPS / 错误率 / 延迟全程手写）
-- [x] 创建 go-api Grafana RED Dashboard，并导出 JSON 入库（`gitops/prometheus/dashboard/go-api-red.json`）
-- [ ] 编写 PrometheusRule，理解 `for` / labels / annotations
-- [ ] 掌握四大黄金信号和 USE
-- [ ] podinfo RED Dashboard（可选迁移练习；非首投阻塞）
-
-### 3. 应用与 Kubernetes 对象 `[ ]`
-
-- [ ] 完善 go-api 业务路由和测试
-- [ ] 掌握 Deployment、Service、ConfigMap、Secret、HPA、PDB
-- [ ] 练习优雅终止和自动扩缩容
-- [ ] 接入 MySQL 和 Redis，练习 StatefulSet、PVC 和连接排障
-
-### 4. 交付与安全 `[ ]`
-
-- [ ] Gateway API / Ingress 与 TLS
-- [ ] go-api 纳入 GitOps 或自动更新镜像
-- [ ] External Secrets / GCP Secret Manager
-- [ ] NetworkPolicy、RBAC 和 Workload Identity
-
-## 已掌握
-
-- 理解 liveness 和 readiness 的用途，以及探针配置错误的排查方法。
-- 理解 requests 影响调度、limits 影响运行时约束，排查过 OOMKilled 和 FailedScheduling。
-- 理解 ConfigMap volume 的 symlink 投影机制。
-- 理解 Argo CD App of Apps、多源 Application、`prune` 和 `selfHeal`。
-- 掌握 PromQL 数据模型与核心函数：序列 = 指标名 + label 集合；`rate` / `increase` / `sum by` / `without` / `histogram_quantile`；向量除法按 label 集合配对，不匹配的序列被静默丢弃。
-- 会读监控图：no data 和 0 是两种状态；爬坡宽度 ≈ rate 窗口宽度；histogram 分位数是桶内线性插值的估计值，精度受 bucket 布局限制。
-- 排障方法论：顺数据流逐环检查（Prometheus → ServiceMonitor → Service → Endpoint → Pod）；比值异动先拆分子分母；`kubectl get endpoints` 是 Service 链路的分流判断点。
-- 理解 GitOps 修复原则：集群状态与 Git 对齐，修复用 manifests apply 而非手动 patch；`kubectl port-forward` 钉死单个 pod，不做负载均衡。
-- 监控卫生：减少无效 scrape 噪音、收敛 Grafana 暴露面（ClusterIP）；用 `up` / HTTP API 与 Web UI 交叉验收 Targets。
-- go-api RED：手写 QPS / 5xx 错误率 / P95；Grafana 三面板分单位展示；Dashboard JSON 由 UI 导出后纳入 Git（非手写 JSON）。
-- 基线 QPS 可与探针周期交叉验证（双探针 10s → 约 0.2 req/s）。
+- K8s：liveness / readiness 排查、requests 调度与 limits 运行时约束、OOMKilled、ConfigMap symlink 投影、Service → Endpoint 链路排障。
+- GitOps：App of Apps、多源 Application、prune / selfHeal 行为；修复对齐 Git 而非手动 patch。
+- PromQL：rate / increase / sum by / without / histogram_quantile；向量除法按 label 配对；「空 vs 0」与指标名 typo 静默返回空。
+- RED 实战：手写 QPS / 5xx 错误率 / P95，Grafana 三面板；基线 QPS 与探针周期交叉验证。
+- 排障方法论：顺数据流逐环检查（Prometheus → ServiceMonitor → Service → Endpoint → Pod）；比值异动先拆分子分母。
+- 告警（PrometheusRule 已结课）：三条规则亲手写、注入验证 pending → firing、for 与求值节奏（测验全对）；薄弱点在错题本待复测：up 自报机制、absent 兜底、release label 加载暗号、空结果不参与比较。
 
 ## 下一步
 
-冲刺至首投（第一梯队剩余）：
-
-1. PrometheusRule 三条告警（错误率、P95、target down），理解 `for` / labels / annotations。
-2. go-api metrics 中间件改造（统计 404、路由模板防基数爆炸），走完整交付链（CI 构建 → pin SHA → apply）。
-3. （可选）podinfo RED Dashboard；Dashboard 经 ConfigMap/sidecar 自动供应到 Grafana。
-
-首投后（第二梯队）：go-api 纳入 Argo、MySQL（StatefulSet + PVC）+ Redis 接入、HPA / PDB / 优雅终止、`make check` + PR CI、根 README 作品集化。
-排障演练（剩 2 次）与 note 复盘在面试前补足。
+1. commit `prometheusrule.yaml` + 本轮文档精简。
+2. go-api metrics 中间件（统计 404、路由模板防基数爆炸），走完整交付链：CI 构建 → pin SHA → apply。
+3. 首投前补齐：剩余 2 次故障演练；错题本 4 条复测。
+4. 首投后：go-api 纳入 Argo、MySQL / Redis、HPA / PDB / 优雅终止、`make check` + PR CI、根 README 作品集化。
 
 ## 已知问题
 
-- Terraform state 仍在本地，后续考虑迁移到 GCS backend。
-- 仓库暂无统一 `make check` 和完整的 Pull Request 检查。
-- go-api RED Dashboard JSON 已落盘，但未配置 Grafana 自动加载；换环境需手动 Import。
-- `go-api-red.json` 目前可能仍为本地未提交变更，需 commit 后进入 `main` 版本历史。
-
-## 最近记录
-
-### 2026-07-16
-
-- 监控卫生验收：Grafana Service 为 ClusterIP；Prometheus Targets 中 go-api / podinfo 为 UP；筛 DOWN 无常驻无效控制面噪音。values 修复此前已合入 `main`。
-- 用 Prometheus HTTP API（`/-/healthy`、`/api/v1/query`）验收 `up` 与 RED 查询；巩固指标名 typo 导致 `result: []` 静默为空。
-- 完成 go-api Grafana RED 三面板（QPS / 5xx 错误率 / P95）；无 5xx 时 Error 面板 No data 为预期。
-- Dashboard JSON 导出至 `gitops/prometheus/dashboard/go-api-red.json`。
-
-### 2026-07-15
-
-- 打通监控链路：Targets 确认 go-api / podinfo UP，识别 GKE 托管控制面的 0/0 目标为预期噪音。
-- 手写 RED 三件套 PromQL；两轮闭卷练习共 11 题，纠正“指标名 typo 静默返回空”“通用指标名要圈 namespace”两个习惯。
-- 一次真实排障：错误率无故下台阶 → 拆分子分母 → 定位为 delay 序列迟到 9 分钟入场稀释分母。
-- 第一次故障注入演练：Service selector 改错 → Endpoint `<none>` → 流量与指标双断；按 GitOps 原则用 manifests apply 修复，已确认还原干净。
-
-### 2026-07-14
-
-- 统一 GitOps 和 CI 的发布分支为 `main`。
-- 补充根目录及各模块 README。
-- Argo CD Helm Chart 版本更新为 `10.1.3`。
-- 建立 AI 协作规则和项目状态记录。
+- Terraform state 在本地，未迁 GCS backend。
+- 无统一 `make check` 和 PR CI。
+- Grafana Dashboard 未自动供应，换环境需手动 Import。
+- `prometheusrule.yaml` 已 apply 但未 commit，集群与 Git 暂时不一致。
