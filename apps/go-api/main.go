@@ -1,22 +1,28 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"path/filepath"
 	"strconv"
+	"syscall"
 	"time"
+	"strings"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-type statusRecoder struct {
+type statusRecorder struct {
 	http.ResponseWriter
 	code int
 }
 
-func (r *statusRecoder) WriteHeader(code int) {
+func (r *statusRecorder) WriteHeader(code int) {
 	r.code = code
 	r.ResponseWriter.WriteHeader(code)
 }
@@ -57,37 +63,46 @@ func readyzHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func envHandler(w http.ResponseWriter, r *http.Request) {
-	out := map[string]string{}
-	out["APP_ENV"] = os.Getenv("APP_ENV")
-	out["LOG_LEVEL"] = os.Getenv("LOG_LEVEL")
-	out["API_TOKEN"] = os.Getenv("API_TOKEN")
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(out)
+func envHandler(file string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out := map[string]string{}
+		for _, name := range strings.Split(string(data), "\n") {
+			out[name] = os.Getenv(name)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(out)
+	}
 }
 
-func fileHandler(w http.ResponseWriter, r *http.Request) {
-	entries, err := os.ReadDir("/etc/go-api")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	files := map[string]string{}
-	for _, e := range entries {
-		path := "/etc/go-api/" + e.Name()
-		info, err := os.Stat(path)
-		if err != nil || !info.Mode().IsRegular() {
-			continue
-		}
-		data, err := os.ReadFile(path)
+func fileHandler(dir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		entries, err := os.ReadDir(dir)
 		if err != nil {
-			files[e.Name()] = "read error: " + err.Error()
-			continue
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
-		files[e.Name()] = string(data)
+		files := map[string]string{}
+		for _, e := range entries {
+			path := filepath.Join(dir, e.Name())
+			info, err := os.Stat(path)
+			if err != nil || !info.Mode().IsRegular() {
+				continue
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				files[e.Name()] = "read error: " + err.Error()
+				continue
+			}
+			files[e.Name()] = string(data)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(files)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(files)
 }
 
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +111,7 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 
 func withMetrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rw := &statusRecoder{ResponseWriter: w, code: 200}
+		rw := &statusRecorder{ResponseWriter: w, code: 200}
 		if r.URL.Path == "/metrics" {
 			next.ServeHTTP(w, r)
 			return
@@ -117,9 +132,29 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthzHandler)
 	mux.HandleFunc("/readyz", readyzHandler)
-	mux.HandleFunc("/env", envHandler)
-	mux.HandleFunc("/file", fileHandler)
+	mux.HandleFunc("/env", envHandler("./env"))
+	mux.HandleFunc("/file", fileHandler("/etc/go-api/"))
 	mux.HandleFunc("/", notFoundHandler)
 	mux.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(":8080", withMetrics(mux)))
+	srv := &http.Server{
+		Addr:         ":8080",
+		Handler:      withMetrics(mux),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  50 * time.Second,
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+	<-ctx.Done()
+	log.Println("shutting down")
+	shutDownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutDownCtx); err != nil {
+		log.Printf("graceful shutdown failed: %v", err)
+	}
 }
