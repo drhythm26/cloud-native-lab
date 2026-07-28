@@ -1,41 +1,65 @@
 # podinfo
 
-上游 [podinfo](https://github.com/stefanprodan/podinfo) Helm chart(v6.14.0)的 vendor 副本,作为 GitOps 同步与 Prometheus 监控的练习对象。HTTP 端口 `9898`。
+使用上游 [podinfo](https://github.com/stefanprodan/podinfo) 官方镜像，手写 Kubernetes manifests，用 Kustomize 组织，手动部署（不走 Argo CD）。HTTP 端口 `9898`。
 
-## 部署方式(GitOps)
+练习 K8s 基础资源、探针、扩缩容与故障演练（`/delay`、`/status` 等端点）。
 
-由 Argo CD 自动同步,**不要手动 apply**:
+## 结构
 
-- Application 定义:`apps/applications/podinfo.yaml`
-- source:`main` 分支的 `apps/podinfo`,valueFiles 为 `default-values.yaml` + `values.yaml`
-- 目标 namespace:`podinfo`(CreateNamespace),`prune` + `selfHeal` 开启
+```
+├── kustomization.yaml   # namespace + resources + labels
+├── manifests/
+│   ├── namespace.yaml
+│   ├── deployment.yaml
+│   └── service.yaml
+└── note/lab.md          # 实验笔记
+```
 
-改配置的方式:改 `values.yaml` → commit → push → Argo 自动同步。
+## 部署（手动）
 
-## values 覆盖(`values.yaml`)
+```bash
+# 预览渲染结果
+kubectl kustomize .
 
-上游默认值在 `default-values.yaml`,本仓覆盖项:
+# 客户端校验（勿对「新建 Namespace + 同批 namespaced 资源」用 --dry-run=server，会假失败）
+kubectl apply -k . --dry-run=client
 
-| 配置 | 值 |
-|------|-----|
-| `replicaCount` | 2 |
-| `image` | `ghcr.io/stefanprodan/podinfo:6.14.0` |
-| `resources` | requests 100m/64Mi,limits 200m/128Mi |
-| `serviceMonitor.enabled` | true,interval 15s |
-| `serviceMonitor.additionalLabels` | `release: prometheus`(kube-prometheus-stack 选择器要求) |
+# 部署
+kubectl apply -k .
+```
+
+卸载：
+
+```bash
+kubectl delete -k .
+# 或
+kubectl delete namespace podinfo
+```
+
+## 当前配置
+
+| 项 | 值 |
+|---|---|
+| 镜像 | `ghcr.io/stefanprodan/podinfo:6.14.1` |
+| 副本 | 3 |
+| 端口 | `http` → 9898 |
+| 探针 | readiness `/readyz`，liveness `/healthz` |
+| resources | requests 100m/64Mi，limits 200m/128Mi |
+
+改配置：编辑 `manifests/*.yaml` 或 `kustomization.yaml`，再 `kubectl apply -k .`。
 
 ## 验证
 
 ```bash
-kubectl get application podinfo -n argocd    # Synced / Healthy
-kubectl -n podinfo get pods                  # 2 副本 Running
+kubectl -n podinfo get pods,svc
 kubectl -n podinfo port-forward svc/podinfo 9898:9898
 curl -s localhost:9898/
+curl -s localhost:9898/healthz
 curl -s localhost:9898/metrics | head
 ```
 
-常用练习端点:`/delay/{seconds}`(模拟慢请求)、`/status/{code}`(模拟指定状态码)。
+常用练习端点：`/delay/{seconds}`（模拟慢请求）、`/status/{code}`（模拟指定状态码）。
 
 ## 实验笔记
 
-见 [`note/lab.md`](note/lab.md):replicaCount 扩缩容实验与 Argo / ReplicaSet 事件观察。
+见 [`note/lab.md`](note/lab.md)。
